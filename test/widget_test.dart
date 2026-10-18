@@ -129,6 +129,21 @@ void main() {
     expect(find.text('Saved businesses'), findsOneWidget);
   });
 
+  testWidgets('Near you stays pinned while Explore scrolls', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: ExploreScreen()));
+
+    final exploreScroll = find.byType(Scrollable).first;
+    await tester.drag(exploreScroll, const Offset(0, -650));
+    await tester.pumpAndSettle();
+    expect(find.text('Near you'), findsOneWidget);
+    final pinnedTop = tester.getTopLeft(find.text('Near you')).dy;
+
+    await tester.drag(exploreScroll, const Offset(0, -160));
+    await tester.pumpAndSettle();
+    expect(find.text('Near you'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Near you')).dy, pinnedTop);
+  });
+
   testWidgets('customers can complete the service-to-booking flow', (
     tester,
   ) async {

@@ -163,7 +163,9 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
                     ],
                   ),
                 ),
+
                 const SizedBox(width: 12),
+
                 Material(
                   color: AppColors.paper,
                   borderRadius: BorderRadius.circular(17),
@@ -186,6 +188,7 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
             ),
           ),
         ),
+
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 22, 22, 0),
           sliver: SliverToBoxAdapter(
@@ -239,6 +242,8 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
             ),
           ),
         ),
+
+        // popular locations and services
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 10, 22, 0),
           sliver: SliverToBoxAdapter(
@@ -286,6 +291,8 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
             ),
           ),
         ),
+
+        // categories section
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
           sliver: SliverToBoxAdapter(
@@ -305,11 +312,11 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
                         setState(() => _selectedCategory = category),
                     showCheckmark: false,
                     labelStyle: TextStyle(
-                      color: selected ? Colors.white : const Color(0xFF6F6B66),
+                      color: selected ? Colors.white : AppColors.ink,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
-                    backgroundColor: AppColors.canvas,
+                    backgroundColor: AppColors.orange.withValues(alpha: 0.15),
                     selectedColor: AppColors.orange,
                     side: BorderSide.none,
                     shape: RoundedRectangleBorder(
@@ -322,53 +329,15 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
             ),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(22, 26, 22, 0),
-          sliver: SliverToBoxAdapter(
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Near you',
-                        style: TextStyle(
-                          color: AppColors.ink,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: 3),
-                      Text(
-                        'Good people, close by',
-                        style: TextStyle(
-                          color: Color(0xFF6F6B66),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: widget.onShowBookings,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.orange,
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('See all'),
-                      SizedBox(width: 3),
-                      Icon(Icons.chevron_right_rounded, size: 18),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _NearYouHeaderDelegate(
+            onShowBookings: widget.onShowBookings,
           ),
         ),
+
+        // providers list section
         if (providers.isEmpty)
           const SliverToBoxAdapter(
             child: SizedBox(
@@ -489,4 +458,72 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
       ],
     );
   }
+}
+
+class _NearYouHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _NearYouHeaderDelegate({required this.onShowBookings});
+
+  final VoidCallback onShowBookings;
+
+  @override
+  double get minExtent => 92;
+
+  @override
+  double get maxExtent => 92;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: AppColors.canvas,
+      padding: const EdgeInsets.fromLTRB(22, 12, 22, 6),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Near you',
+                  style: TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'Good people, close by',
+                  style: TextStyle(color: Color(0xFF6F6B66), fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: onShowBookings,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.orange,
+              padding: EdgeInsets.zero,
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('See all'),
+                SizedBox(width: 3),
+                Icon(Icons.chevron_right_rounded, size: 18),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_NearYouHeaderDelegate oldDelegate) =>
+      oldDelegate.onShowBookings != onShowBookings;
 }
