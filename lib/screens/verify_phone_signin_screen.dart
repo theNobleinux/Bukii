@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
-import 'library_screen.dart';
+import 'explore_screen.dart';
 
 class VerifyPhoneSigninScreen extends StatefulWidget {
   const VerifyPhoneSigninScreen({
@@ -57,7 +57,7 @@ class _VerifyPhoneSigninScreenState extends State<VerifyPhoneSigninScreen> {
     setState(() {});
   }
 
-  /// Opens the library once six digits are present.
+  /// Opens Explore once six digits are present.
   ///
   /// This prototype checks that the code is complete only; connect an SMS
   /// verification provider here before treating the phone number as verified.
@@ -71,7 +71,9 @@ class _VerifyPhoneSigninScreenState extends State<VerifyPhoneSigninScreen> {
     }
 
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const LibraryScreen()),
+      MaterialPageRoute<void>(
+        builder: (_) => ExploreScreen(phoneNumber: widget.phoneNumber),
+      ),
       (route) => false,
     );
   }

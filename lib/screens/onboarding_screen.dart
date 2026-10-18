@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
-import 'library_screen.dart';
+import 'explore_screen.dart';
 import 'onboarding/welcome_screen_one.dart';
 import 'onboarding/welcome_screen_three.dart';
 import 'onboarding/welcome_screen_two.dart';
@@ -29,10 +29,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  /// Skips the introduction and opens the library directly.
+  /// Skips the introduction and opens the app on its Explore tab.
   void _skip() {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const LibraryScreen()),
+      MaterialPageRoute<void>(builder: (_) => const ExploreScreen()),
       (route) => false,
     );
   }
@@ -69,7 +69,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.orange,
                   textStyle: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 13,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -117,7 +117,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         textStyle: const TextStyle(
-                          fontSize: 16,
+                          fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

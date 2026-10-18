@@ -58,7 +58,7 @@ flutter:
   uses-material-design: true
 
   fonts:
-    - family: RethinkSans
+    - family: Rethink Sans
       fonts:
         - asset: assets/fonts/RethinkSans-Regular.ttf
           weight: 400

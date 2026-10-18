@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:bookii/main.dart';
-import 'package:bookii/screens/library_screen.dart';
+import 'package:bookii/screens/explore_screen.dart';
 import 'package:bookii/theme/app_theme.dart';
 
 void main() {
@@ -11,6 +11,7 @@ void main() {
 
     expect(theme.textTheme.bodyMedium?.fontFamily, 'Rethink Sans');
     expect(theme.primaryTextTheme.bodyMedium?.fontFamily, 'Rethink Sans');
+    expect(theme.scaffoldBackgroundColor, Colors.white);
   });
 
   testWidgets('splash automatically opens the three-screen welcome flow', (
@@ -76,10 +77,17 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('verify-continue')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Your little library'), findsOneWidget);
+    expect(find.text('Near you'), findsOneWidget);
+    expect(find.textContaining('Amara'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Popular services'),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Popular services'), findsOneWidget);
   });
 
-  testWidgets('skip opens the library from the first welcome screen', (
+  testWidgets('skip opens Explore from the first welcome screen', (
     tester,
   ) async {
     await tester.pumpWidget(const BookiiApp());
@@ -91,34 +99,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('onboarding-skip')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Your little library'), findsOneWidget);
+    expect(find.text('Near you'), findsOneWidget);
   });
 
-  testWidgets('search and saved books update the visible shelf', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const MaterialApp(home: LibraryScreen()));
-
-    await tester.enterText(find.byType(TextField), 'Mira');
-    await tester.pumpAndSettle();
-    expect(find.text('The Quiet Between'), findsWidgets);
-    expect(find.text('Small Hours'), findsNothing);
-
-    await tester.tap(find.byTooltip('Clear search'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('History'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('A Map of Elsewhere'), findsWidgets);
-    await tester.tap(find.byTooltip('Remove from saved'));
-    await tester.pumpAndSettle();
-    expect(find.text('Your saved shelf is waiting.'), findsOneWidget);
-  });
-
-  testWidgets('library navigation matches the four reference tabs', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const MaterialApp(home: LibraryScreen()));
+  testWidgets('bottom navigation opens all four booking tabs', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: ExploreScreen()));
 
     expect(find.text('Explore'), findsOneWidget);
     expect(find.text('Bookings'), findsOneWidget);
@@ -131,14 +116,92 @@ void main() {
 
     await tester.tap(find.text('Bookings'));
     await tester.pumpAndSettle();
-    expect(find.text('Find your next read'), findsOneWidget);
+    expect(find.text('UP NEXT'), findsOneWidget);
 
-    await tester.tap(find.text('History'));
+    await tester.tap(find.text('History').last);
     await tester.pumpAndSettle();
-    expect(find.text('Your reading history'), findsOneWidget);
+    expect(find.text('Visit history'), findsOneWidget);
+    expect(find.text('FAVOURITE'), findsOneWidget);
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();
-    expect(find.text('Your profile'), findsOneWidget);
+    expect(find.text('Appointment reminders'), findsOneWidget);
+    expect(find.text('Saved businesses'), findsOneWidget);
+  });
+
+  testWidgets('customers can complete the service-to-booking flow', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(const MaterialApp(home: ExploreScreen()));
+
+    const weekdays = [
+      'MONDAY',
+      'TUESDAY',
+      'WEDNESDAY',
+      'THURSDAY',
+      'FRIDAY',
+      'SATURDAY',
+      'SUNDAY',
+    ];
+    const months = [
+      'JANUARY',
+      'FEBRUARY',
+      'MARCH',
+      'APRIL',
+      'MAY',
+      'JUNE',
+      'JULY',
+      'AUGUST',
+      'SEPTEMBER',
+      'OCTOBER',
+      'NOVEMBER',
+      'DECEMBER',
+    ];
+    final today = DateTime.now();
+    expect(
+      find.text(
+        '${weekdays[today.weekday - 1]}, ${today.day} '
+        '${months[today.month - 1]}',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Amara'), findsOneWidget);
+    expect(find.text('Fade Lab'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Fade Lab'));
+    await tester.tap(find.text('Fade Lab'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a service'), findsOneWidget);
+    expect(find.text('Opening Hours'), findsOneWidget);
+
+    final haircutAndBeard = find.byKey(
+      const ValueKey('service-Haircut + Beard'),
+    );
+    await tester.scrollUntilVisible(
+      haircutAndBeard,
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(haircutAndBeard);
+    await tester.ensureVisible(find.text('Book Now'));
+    await tester.tap(find.text('Book Now'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Almost there.'), findsOneWidget);
+    expect(find.text('Haircut + Beard'), findsOneWidget);
+    expect(find.text('₦18,000'), findsOneWidget);
+
+    await tester.tap(find.text('Confirm booking'));
+    await tester.pumpAndSettle();
+    expect(find.text('It’s booked,\nAmara.'), findsOneWidget);
+    expect(find.text('BOOKING REFERENCE'), findsOneWidget);
+
+    await tester.tap(find.text('View my bookings'));
+    await tester.pumpAndSettle();
+    expect(find.text('UP NEXT'), findsOneWidget);
+    expect(find.text('Fade Lab'), findsWidgets);
   });
 }

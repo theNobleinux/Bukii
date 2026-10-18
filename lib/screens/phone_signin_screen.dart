@@ -98,7 +98,7 @@ class _PhoneSigninScreenState extends State<PhoneSigninScreen> {
                     ),
 
                     const Spacer(),
-                    
+
                     const Text(
                       'Phone number',
                       style: TextStyle(
@@ -179,13 +179,13 @@ class _PhoneSigninScreenState extends State<PhoneSigninScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          
+
                           textStyle: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        
+
                         child: const Text('Continue'),
                       ),
                     ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'screens/bukii_splash_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   LicenseRegistry.addLicense(() async* {
@@ -20,7 +21,7 @@ class BookiiApp extends StatelessWidget {
     return MaterialApp(
       title: 'Bukii',
       debugShowCheckedModeBanner: false,
-      theme:  ThemeData(fontFamily: 'RethinkSans'),
+      theme: AppTheme.light,
       home: const BukiiSplashScreen(),
     );
   }
