@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/backend/bukii_backend.dart';
+import '../data/models/user_profile.dart';
 import '../theme/app_theme.dart';
 import 'verify_phone_signin_screen.dart';
 
@@ -16,6 +18,7 @@ class PhoneSigninScreen extends StatefulWidget {
 
 class _PhoneSigninScreenState extends State<PhoneSigninScreen> {
   final _phoneController = TextEditingController();
+  var _sending = false;
 
   @override
   void dispose() {
@@ -24,9 +27,12 @@ class _PhoneSigninScreenState extends State<PhoneSigninScreen> {
     super.dispose();
   }
 
-  /// Validates the phone number and opens the one-time-code screen.
-  void _continueToVerification() {
-    final nationalNumber = _phoneController.text.replaceAll(' ', '');
+  /// Validates the number, sends the SMS code, then opens the code screen.
+  Future<void> _continueToVerification() async {
+    var nationalNumber = _phoneController.text.replaceAll(' ', '');
+    if (nationalNumber.startsWith('0')) {
+      nationalNumber = nationalNumber.substring(1);
+    }
     if (nationalNumber.length != 10) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a 10-digit phone number.')),
@@ -35,7 +41,23 @@ class _PhoneSigninScreenState extends State<PhoneSigninScreen> {
     }
 
     final phoneNumber = '+234 ${_phoneController.text}';
-    Navigator.of(context).push(
+    setState(() => _sending = true);
+    try {
+      await BukiiBackend.instance.sendOtp(
+        phone: '+234$nationalNumber',
+        role: UserRole.fromAudience(widget.audience),
+      );
+    } on BackendException catch (error) {
+      if (!mounted) return;
+      setState(() => _sending = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _sending = false);
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => VerifyPhoneSigninScreen(
           phoneNumber: phoneNumber,
@@ -172,7 +194,7 @@ class _PhoneSigninScreenState extends State<PhoneSigninScreen> {
                       height: 52,
                       child: FilledButton(
                         key: const ValueKey('phone-continue'),
-                        onPressed: _continueToVerification,
+                        onPressed: _sending ? null : _continueToVerification,
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.orange,
                           foregroundColor: Colors.white,
@@ -186,7 +208,7 @@ class _PhoneSigninScreenState extends State<PhoneSigninScreen> {
                           ),
                         ),
 
-                        child: const Text('Continue'),
+                        child: Text(_sending ? 'Sending code...' : 'Continue'),
                       ),
                     ),
 

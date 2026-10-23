@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/backend/bukii_backend.dart';
 import '../data/models/appointment.dart';
+import '../data/models/user_profile.dart';
 import '../theme/app_theme.dart';
 import '../utils/booking_formatters.dart';
 import 'components/primary_action_button.dart';
@@ -62,15 +64,23 @@ class BookingConfirmationScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      const Text(
-                        'It’s booked,\nAmara.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: AppColors.ink,
-                          fontSize: 36,
-                          height: 1.1,
-                          fontWeight: FontWeight.w400,
-                        ),
+                      FutureBuilder<UserProfile?>(
+                        future: BukiiBackend.instance.currentProfile(),
+                        builder: (context, snapshot) {
+                          final name = snapshot.data?.fullName?.trim() ?? '';
+                          return Text(
+                            name.isEmpty
+                                ? 'It’s booked!'
+                                : 'It’s booked,\n${snapshot.data!.firstName}.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.ink,
+                              fontSize: 36,
+                              height: 1.1,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(height: 12),
                       Text(

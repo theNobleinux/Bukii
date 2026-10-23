@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../data/models/appointment.dart';
+import '../../data/models/time_slot.dart';
 import '../../theme/app_theme.dart';
 import '../components/appointment_card.dart';
+import '../components/slot_picker_sheet.dart';
 
 class BookingsScreen extends StatefulWidget {
   const BookingsScreen({
     super.key,
     required this.appointments,
-    required this.onUpdateAppointment,
+    required this.onCancel,
+    required this.onReschedule,
   });
 
   final List<Appointment> appointments;
-  final ValueChanged<Appointment> onUpdateAppointment;
+  final Future<void> Function(Appointment appointment) onCancel;
+  final Future<void> Function(Appointment appointment, TimeSlot slot)
+  onReschedule;
 
   @override
   State<BookingsScreen> createState() => _BookingsScreenState();
@@ -41,9 +46,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
       ),
     );
     if (confirmed == true) {
-      widget.onUpdateAppointment(
-        appointment.copyWith(status: AppointmentStatus.cancelled),
-      );
+      await widget.onCancel(appointment);
     }
   }
 
@@ -57,27 +60,27 @@ class _BookingsScreenState extends State<BookingsScreen> {
       firstDate: DateTime(today.year, today.month, today.day),
       lastDate: today.add(const Duration(days: 90)),
     );
-    if (date == null) return;
-    widget.onUpdateAppointment(
-      appointment.copyWith(
-        dateTime: DateTime(
-          date.year,
-          date.month,
-          date.day,
-          appointment.dateTime.hour,
-          appointment.dateTime.minute,
-        ),
-      ),
+    if (date == null || !mounted) return;
+    final slot = await showSlotPicker(
+      context,
+      provider: appointment.provider,
+      services: appointment.services,
+      date: date,
     );
+    if (slot == null) return;
+    await widget.onReschedule(appointment, slot);
   }
 
   @override
   Widget build(BuildContext context) {
-    final upcoming = widget.appointments
-        .where(
-          (appointment) => appointment.status == AppointmentStatus.upcoming,
-        )
-        .toList();
+    final upcoming =
+        widget.appointments
+            .where(
+              (appointment) =>
+                  appointment.status == AppointmentStatus.upcoming,
+            )
+            .toList()
+          ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
     final past = widget.appointments
         .where(
           (appointment) => appointment.status != AppointmentStatus.upcoming,
@@ -86,6 +89,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
     final appointments = _showPast ? past : upcoming;
 
     return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 28, 22, 0),

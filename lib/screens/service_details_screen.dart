@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/backend/bukii_backend.dart';
 import '../data/models/appointment.dart';
 import '../data/models/provider.dart';
 import '../data/models/service.dart';
@@ -29,6 +30,47 @@ class ServiceDetailsScreen extends StatefulWidget {
 
 class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
   ServiceOffering? _selectedService;
+  var _saved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSaved();
+  }
+
+  Future<void> _loadSaved() async {
+    if (!BukiiBackend.instance.isSignedIn) return;
+    try {
+      final saved = await BukiiBackend.instance.savedProviders();
+      if (mounted) setState(() => _saved = saved.contains(widget.provider));
+    } on BackendException {
+      // Not critical.
+    }
+  }
+
+  Future<void> _toggleSaved() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (!BukiiBackend.instance.isSignedIn) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Sign in to save businesses.')),
+      );
+      return;
+    }
+    final next = !_saved;
+    setState(() => _saved = next);
+    try {
+      await BukiiBackend.instance.setSaved(widget.provider, saved: next);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(next ? 'Saved to your list.' : 'Removed from saved.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on BackendException catch (error) {
+      if (mounted) setState(() => _saved = !next);
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
 
   void _continueToBooking() {
     final selectedService = _selectedService;
@@ -99,6 +141,17 @@ class _ServiceDetailsScreenState extends State<ServiceDetailsScreen> {
                               const Text(
                                 'online',
                                 style: TextStyle(fontSize: 13),
+                              ),
+                              IconButton(
+                                key: const ValueKey('save-business'),
+                                tooltip: _saved ? 'Remove from saved' : 'Save',
+                                onPressed: _toggleSaved,
+                                icon: Icon(
+                                  _saved
+                                      ? Icons.bookmark_rounded
+                                      : Icons.bookmark_border_rounded,
+                                  color: AppColors.orange,
+                                ),
                               ),
                             ],
                           ),

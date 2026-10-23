@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../data/backend/bukii_backend.dart';
 import '../theme/app_theme.dart';
 import 'audience_selection_screen.dart';
+import 'explore_screen.dart';
 
 class BukiiSplashScreen extends StatefulWidget {
   const BukiiSplashScreen({super.key});
@@ -81,7 +83,10 @@ class _BukiiSplashScreenState extends State<BukiiSplashScreen>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
         transitionDuration: _transitionDuration,
-        pageBuilder: (_, _, _) => const AudienceSelectionScreen(),
+        // Returning users with a saved session go straight to Explore.
+        pageBuilder: (_, _, _) => BukiiBackend.instance.isSignedIn
+            ? const ExploreScreen()
+            : const AudienceSelectionScreen(),
         transitionsBuilder: (_, animation, _, child) => FadeTransition(
           opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
           child: child,

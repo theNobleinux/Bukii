@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:bookii/data/backend/bukii_backend.dart';
+import 'package:bookii/data/backend/demo_backend.dart';
 import 'package:bookii/main.dart';
 import 'package:bookii/screens/explore_screen.dart';
 import 'package:bookii/theme/app_theme.dart';
 
 void main() {
+  // Screens talk to an in-memory backend in tests (no network).
+  setUp(() => BukiiBackend.instance = DemoBackend());
+
   test('Rethink Sans is the app-wide text family', () {
     final theme = AppTheme.light;
 
@@ -17,6 +22,7 @@ void main() {
   testWidgets('splash automatically opens the three-screen welcome flow', (
     tester,
   ) async {
+    BukiiBackend.instance = DemoBackend(signedIn: false);
     await tester.pumpWidget(const BookiiApp());
 
     expect(find.text('Bukii'), findsOneWidget);
@@ -90,6 +96,7 @@ void main() {
   testWidgets('skip opens Explore from the first welcome screen', (
     tester,
   ) async {
+    BukiiBackend.instance = DemoBackend(signedIn: false);
     await tester.pumpWidget(const BookiiApp());
     await tester.pump(const Duration(milliseconds: 2800));
     await tester.pumpAndSettle();
@@ -104,6 +111,7 @@ void main() {
 
   testWidgets('bottom navigation opens all four booking tabs', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: ExploreScreen()));
+    await tester.pumpAndSettle();
 
     expect(find.text('Explore'), findsOneWidget);
     expect(find.text('Bookings'), findsOneWidget);
@@ -131,6 +139,7 @@ void main() {
 
   testWidgets('Near you stays pinned while Explore scrolls', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: ExploreScreen()));
+    await tester.pumpAndSettle();
 
     final exploreScroll = find.byType(Scrollable).first;
     await tester.drag(exploreScroll, const Offset(0, -650));
@@ -151,6 +160,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(const MaterialApp(home: ExploreScreen()));
+    await tester.pumpAndSettle();
 
     const weekdays = [
       'MONDAY',
@@ -209,6 +219,10 @@ void main() {
     expect(find.text('Haircut + Beard'), findsOneWidget);
     expect(find.text('₦18,000'), findsOneWidget);
 
+    await tester.tap(find.text('Choose a time'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('slot-9:00 AM')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm booking'));
     await tester.pumpAndSettle();
     expect(find.text('It’s booked,\nAmara.'), findsOneWidget);
