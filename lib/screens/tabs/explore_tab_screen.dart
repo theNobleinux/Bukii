@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/appointment.dart';
 import '../../data/models/provider.dart';
-import '../../data/repositories/sample_providers.dart';
 import '../../theme/app_theme.dart';
 import '../service_details_screen.dart';
 import '../components/provider_card.dart';
@@ -10,12 +9,22 @@ import '../components/provider_card.dart';
 class ExploreTabScreen extends StatefulWidget {
   const ExploreTabScreen({
     super.key,
+    required this.providers,
+    this.isLoading = false,
+    this.errorMessage,
+    this.onRetry,
+    this.firstName = 'there',
     required this.onShowBookings,
     required this.onBookingConfirmed,
     required this.onViewBookings,
     required this.onBackToExplore,
   });
 
+  final List<ServiceProvider> providers;
+  final bool isLoading;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
+  final String firstName;
   final VoidCallback onShowBookings;
   final ValueChanged<Appointment> onBookingConfirmed;
   final VoidCallback onViewBookings;
@@ -37,7 +46,8 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
 
   final _searchController = TextEditingController();
   String _selectedCategory = 'All';
-  String _location = 'Ikoyi, Lagos';
+  static const _allAreas = 'All areas, Lagos';
+  String _location = _allAreas;
   String _query = '';
 
   @override
@@ -49,10 +59,11 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
   List<ServiceProvider> get _visibleProviders {
     final query = _query.trim().toLowerCase();
     final selectedLocation = _location.split(',').first.toLowerCase();
-    return sampleProviders.where((provider) {
+    return widget.providers.where((provider) {
       final matchesCategory =
           _selectedCategory == 'All' || provider.category == _selectedCategory;
       final matchesLocation =
+          _location == _allAreas ||
           provider.location.toLowerCase() == selectedLocation;
       final matchesQuery =
           query.isEmpty ||
@@ -129,6 +140,7 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
     final today = DateTime.now();
     final providers = _visibleProviders;
     return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(22, 24, 22, 0),
@@ -151,7 +163,7 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        '${_greeting(today)}\nAmara',
+                        '${_greeting(today)}\n${widget.firstName}',
                         style: const TextStyle(
                           color: Colors.black,
                           fontSize: 27,
@@ -251,6 +263,7 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
               tooltip: 'Choose location',
               onSelected: (location) => setState(() => _location = location),
               itemBuilder: (context) => const [
+                PopupMenuItem(value: _allAreas, child: Text(_allAreas)),
                 PopupMenuItem(
                   value: 'Ikoyi, Lagos',
                   child: Text('Ikoyi, Lagos'),
@@ -338,7 +351,47 @@ class _ExploreTabScreenState extends State<ExploreTabScreen> {
         ),
 
         // providers list section
-        if (providers.isEmpty)
+        if (widget.isLoading && widget.providers.isEmpty)
+          const SliverToBoxAdapter(
+            child: SizedBox(
+              height: 230,
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.orange),
+              ),
+            ),
+          )
+        else if (widget.errorMessage != null && widget.providers.isEmpty)
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 230,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.wifi_off_rounded,
+                      color: Color(0xFF6F6B66),
+                      size: 30,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF6F6B66),
+                        fontSize: 14,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: widget.onRetry,
+                      child: const Text('Try again'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else if (providers.isEmpty)
           const SliverToBoxAdapter(
             child: SizedBox(
               height: 230,

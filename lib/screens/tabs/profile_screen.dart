@@ -1,24 +1,82 @@
 import 'package:flutter/material.dart';
 
-import '../../data/repositories/sample_providers.dart';
+import '../../data/backend/bukii_backend.dart';
+import '../../data/models/user_profile.dart';
 import '../../theme/app_theme.dart';
+import '../audience_selection_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.phoneNumber});
+  const ProfileScreen({
+    super.key,
+    required this.phoneNumber,
+    this.profile,
+    this.onProfileChanged,
+  });
 
   final String phoneNumber;
+  final UserProfile? profile;
+  final ValueChanged<UserProfile>? onProfileChanged;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  var _name = 'Amara Okafor';
+  final _backend = BukiiBackend.instance;
+  var _name = 'Your name';
   var _remindersEnabled = true;
   var _whatsAppEnabled = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _applyProfile(widget.profile);
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.profile != oldWidget.profile) _applyProfile(widget.profile);
+  }
+
+  void _applyProfile(UserProfile? profile) {
+    if (profile == null) return;
+    final name = profile.fullName?.trim() ?? '';
+    _name = name.isEmpty ? 'Add your name' : name;
+    _remindersEnabled = profile.remindersEnabled;
+    _whatsAppEnabled = profile.whatsappUpdates;
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  Future<void> _save({
+    String? fullName,
+    bool? remindersEnabled,
+    bool? whatsappUpdates,
+  }) async {
+    if (!_backend.isSignedIn) return;
+    try {
+      final profile = await _backend.updateProfile(
+        fullName: fullName,
+        remindersEnabled: remindersEnabled,
+        whatsappUpdates: whatsappUpdates,
+      );
+      widget.onProfileChanged?.call(profile);
+    } on BackendException catch (error) {
+      _showMessage(error.message);
+      if (mounted) setState(() => _applyProfile(widget.profile));
+    }
+  }
+
   Future<void> _editProfile() async {
-    final controller = TextEditingController(text: _name);
+    final controller = TextEditingController(
+      text: widget.profile?.fullName ?? '',
+    );
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -42,16 +100,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     controller.dispose();
-    if (name != null && name.isNotEmpty) setState(() => _name = name);
+    if (name != null && name.isNotEmpty) {
+      setState(() => _name = name);
+      await _save(fullName: name);
+    }
   }
 
-  void _showAccountOption(String title) {
-    final message = switch (title) {
-      'Saved businesses' =>
-        sampleProviders.map((provider) => provider.name).join('\n'),
+  Future<void> _showAccountOption(String title) async {
+    var message = switch (title) {
       'Help & support' => 'Get help with an appointment or your account.',
       _ => 'Your privacy settings are up to date.',
     };
+    if (title == 'Saved businesses') {
+      try {
+        final saved = await _backend.savedProviders();
+        message = saved.isEmpty
+            ? 'You have not saved any businesses yet.'
+            : saved.map((provider) => provider.name).join('\n');
+      } on BackendException catch (error) {
+        message = error.message;
+      }
+      if (!mounted) return;
+    }
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -68,11 +138,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _logOut() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('You’ve been signed out of this demo account.'),
-      ),
+  Future<void> _logOut() async {
+    try {
+      await _backend.signOut();
+    } on BackendException catch (error) {
+      _showMessage(error.message);
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const AudienceSelectionScreen()),
+      (route) => false,
     );
   }
 
@@ -175,8 +251,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Appointment reminders',
                       subtitle: 'Get a heads-up before your visit',
                       value: _remindersEnabled,
-                      onChanged: (value) =>
-                          setState(() => _remindersEnabled = value),
+                      onChanged: (value) {
+                        setState(() => _remindersEnabled = value);
+                        _save(remindersEnabled: value);
+                      },
                     ),
                     const Divider(height: 1, indent: 55),
                     _PreferenceRow(
@@ -184,8 +262,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'WhatsApp updates',
                       subtitle: 'Helpful messages from your businesses',
                       value: _whatsAppEnabled,
-                      onChanged: (value) =>
-                          setState(() => _whatsAppEnabled = value),
+                      onChanged: (value) {
+                        setState(() => _whatsAppEnabled = value);
+                        _save(whatsappUpdates: value);
+                      },
                     ),
                   ],
                 ),

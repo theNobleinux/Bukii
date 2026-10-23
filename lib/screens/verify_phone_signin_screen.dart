@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../data/backend/bukii_backend.dart';
+import '../data/models/user_profile.dart';
 import '../theme/app_theme.dart';
 import 'explore_screen.dart';
 
@@ -25,6 +27,19 @@ class _VerifyPhoneSigninScreenState extends State<VerifyPhoneSigninScreen> {
 
   late final List<TextEditingController> _codeControllers;
   late final List<FocusNode> _codeFocusNodes;
+  var _verifying = false;
+
+  /// "+234 801 234 5678" -> "+2348012345678"
+  String get _e164Phone {
+    final digits = widget.phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    return '+$digits';
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void initState() {
@@ -57,20 +72,26 @@ class _VerifyPhoneSigninScreenState extends State<VerifyPhoneSigninScreen> {
     setState(() {});
   }
 
-  /// Opens Explore once six digits are present.
-  ///
-  /// This prototype checks that the code is complete only; connect an SMS
-  /// verification provider here before treating the phone number as verified.
-  void _verifyCode() {
+  /// Verifies the SMS code with the backend, then opens Explore.
+  Future<void> _verifyCode() async {
     final code = _codeControllers.map((controller) => controller.text).join();
     if (code.length != _codeLength) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter the complete 6-digit code.')),
-      );
+      _showMessage('Enter the complete 6-digit code.');
       return;
     }
 
-    Navigator.of(context).pushAndRemoveUntil(
+    setState(() => _verifying = true);
+    try {
+      await BukiiBackend.instance.verifyOtp(phone: _e164Phone, code: code);
+    } on BackendException catch (error) {
+      if (!mounted) return;
+      setState(() => _verifying = false);
+      _showMessage(error.message);
+      return;
+    }
+    if (!mounted) return;
+
+    await Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
         builder: (_) => ExploreScreen(phoneNumber: widget.phoneNumber),
       ),
@@ -78,16 +99,22 @@ class _VerifyPhoneSigninScreenState extends State<VerifyPhoneSigninScreen> {
     );
   }
 
-  /// Replaces the current code with an empty set of digit fields.
-  void _resendCode() {
+  /// Clears the digits and sends a fresh code.
+  Future<void> _resendCode() async {
     for (final controller in _codeControllers) {
       controller.clear();
     }
     _codeFocusNodes.first.requestFocus();
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('A new verification code has been sent.')),
-    );
+    try {
+      await BukiiBackend.instance.sendOtp(
+        phone: _e164Phone,
+        role: UserRole.fromAudience(widget.audience),
+      );
+      if (mounted) _showMessage('A new verification code has been sent.');
+    } on BackendException catch (error) {
+      if (mounted) _showMessage(error.message);
+    }
   }
 
   /// Returns to phone sign-in so the user can correct their number.
@@ -226,7 +253,9 @@ class _VerifyPhoneSigninScreenState extends State<VerifyPhoneSigninScreen> {
                       height: 52,
                       child: FilledButton(
                         key: const ValueKey('verify-continue'),
-                        onPressed: codeComplete ? _verifyCode : null,
+                        onPressed: codeComplete && !_verifying
+                            ? _verifyCode
+                            : null,
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.orange,
                           disabledBackgroundColor: AppColors.orange.withValues(
@@ -241,7 +270,7 @@ class _VerifyPhoneSigninScreenState extends State<VerifyPhoneSigninScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        child: const Text('Continue'),
+                        child: Text(_verifying ? 'Verifying...' : 'Continue'),
                       ),
                     ),
                   ],

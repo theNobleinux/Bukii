@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../data/backend/bukii_backend.dart';
 import '../data/models/appointment.dart';
 import '../data/models/provider.dart';
 import '../data/models/service.dart';
-import '../data/repositories/sample_appointments.dart';
+import '../data/models/time_slot.dart';
 import '../theme/app_theme.dart';
 import '../utils/booking_formatters.dart';
 import 'booking_confirmation_screen.dart';
 import 'components/primary_action_button.dart';
 import 'components/provider_photo.dart';
+import 'components/slot_picker_sheet.dart';
+import 'phone_signin_screen.dart';
 
 class BookingDetailsScreen extends StatefulWidget {
   const BookingDetailsScreen({
@@ -33,19 +36,20 @@ class BookingDetailsScreen extends StatefulWidget {
 class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
   late List<ServiceOffering> _services;
   late DateTime _date;
-  var _hour = 10;
-  var _minute = 30;
+  TimeSlot? _slot;
+  var _paymentMethod = PaymentMethod.payOnArrival;
+  var _submitting = false;
 
   @override
   void initState() {
     super.initState();
     _services = List.of(widget.services);
-    final tomorrow = DateTime.now().add(const Duration(days: 2));
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
     _date = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
   }
 
-  DateTime get _appointmentDateTime =>
-      DateTime(_date.year, _date.month, _date.day, _hour, _minute);
+  /// Chosen time, or the start of the chosen day until a time is picked.
+  DateTime get _appointmentDateTime => _slot?.start.toLocal() ?? _date;
 
   int get _total => _services.fold(0, (sum, service) => sum + service.price);
 
@@ -90,8 +94,11 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         ),
       ),
     );
-    if (selectedService != null) {
-      setState(() => _services = [selectedService]);
+    if (selectedService != null && selectedService != _services.first) {
+      setState(() {
+        _services = [selectedService];
+        _slot = null;
+      });
     }
   }
 
@@ -111,84 +118,73 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
       ),
     );
     if (selected != null) {
-      setState(() => _date = selected);
+      setState(() {
+        _date = selected;
+        _slot = null;
+      });
+      if (!mounted) return;
+      await _editTime();
     }
   }
 
   Future<void> _editTime() async {
-    const slots = ['9:00 AM', '10:30 AM', '12:00 PM', '2:30 PM', '4:00 PM'];
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: AppColors.canvas,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Choose a time',
-                style: TextStyle(
-                  color: AppColors.ink,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final slot in slots)
-                    OutlinedButton(
-                      onPressed: () => Navigator.pop(context, slot),
-                      child: Text(slot),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (selected == null) return;
-    final parsed = _parseTime(selected);
-    setState(() {
-      _hour = parsed.$1;
-      _minute = parsed.$2;
-    });
-  }
-
-  (int, int) _parseTime(String value) {
-    final parts = value.split(' ');
-    final time = parts.first.split(':');
-    var hour = int.parse(time.first);
-    final minute = int.parse(time.last);
-    if (parts.last == 'PM' && hour != 12) hour += 12;
-    if (parts.last == 'AM' && hour == 12) hour = 0;
-    return (hour, minute);
-  }
-
-  void _confirmBooking() {
-    final reference =
-        'SL-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-    final appointment = createAppointment(
+    final selected = await showSlotPicker(
+      context,
       provider: widget.provider,
       services: _services,
-      dateTime: _appointmentDateTime,
-      reference: reference,
+      date: _date,
     );
-    widget.onBookingConfirmed(appointment);
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BookingConfirmationScreen(
-          appointment: appointment,
-          onViewBookings: widget.onViewBookings,
-          onBackToExplore: widget.onBackToExplore,
+    if (selected != null && mounted) setState(() => _slot = selected);
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
+
+  Future<void> _confirmBooking() async {
+    final slot = _slot;
+    if (slot == null) {
+      await _editTime();
+      return;
+    }
+    if (!BukiiBackend.instance.isSignedIn) {
+      _showError('Sign in with your phone number to book.');
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const PhoneSigninScreen(audience: 'Customer'),
         ),
-      ),
-    );
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      final appointment = await BukiiBackend.instance.createBooking(
+        provider: widget.provider,
+        services: _services,
+        slot: slot,
+        paymentMethod: _paymentMethod,
+      );
+      if (!mounted) return;
+      widget.onBookingConfirmed(appointment);
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => BookingConfirmationScreen(
+            appointment: appointment,
+            onViewBookings: widget.onViewBookings,
+            onBackToExplore: widget.onBackToExplore,
+          ),
+        ),
+      );
+    } on BackendException catch (error) {
+      if (!mounted) return;
+      if (error.isSlotTaken) setState(() => _slot = null);
+      _showError(error.message);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -232,12 +228,17 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
                     services: _services,
                     date: _date,
                     time: _appointmentDateTime,
+                    timeLabel: _slot?.label,
                     onEditDate: _editDate,
                     onEditService: _editServices,
                     onEditTime: _editTime,
                   ),
                   const SizedBox(height: 16),
-                  const _PaymentCard(),
+                  _PaymentCard(
+                    value: _paymentMethod,
+                    onChanged: (method) =>
+                        setState(() => _paymentMethod = method),
+                  ),
                   const SizedBox(height: 22),
                   Row(
                     children: [
@@ -268,8 +269,12 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
               child: Column(
                 children: [
                   PrimaryActionButton(
-                    label: 'Confirm booking',
-                    onPressed: _confirmBooking,
+                    label: _submitting
+                        ? 'Booking...'
+                        : _slot == null
+                        ? 'Choose a time'
+                        : 'Confirm booking',
+                    onPressed: _submitting ? null : _confirmBooking,
                   ),
                   const SizedBox(height: 10),
                   const Text(
@@ -293,6 +298,7 @@ class _BookingSummaryCard extends StatelessWidget {
     required this.services,
     required this.date,
     required this.time,
+    required this.timeLabel,
     required this.onEditDate,
     required this.onEditService,
     required this.onEditTime,
@@ -302,6 +308,7 @@ class _BookingSummaryCard extends StatelessWidget {
   final List<ServiceOffering> services;
   final DateTime date;
   final DateTime time;
+  final String? timeLabel;
   final VoidCallback onEditDate;
   final VoidCallback onEditService;
   final VoidCallback onEditTime;
@@ -354,7 +361,7 @@ class _BookingSummaryCard extends StatelessWidget {
               icon: Icons.calendar_month_outlined,
               title: formatAppointmentDate(date),
               subtitle:
-                  '${formatAppointmentTime(time)} · '
+                  '${timeLabel ?? 'Tap to choose a time'} · '
                   '${services.fold(0, (total, service) => total + service.durationMinutes)} min',
               onEdit: onEditDate,
             ),
@@ -362,7 +369,7 @@ class _BookingSummaryCard extends StatelessWidget {
             _SummaryRow(
               icon: Icons.content_cut_rounded,
               title: services.map((service) => service.name).join(' + '),
-              subtitle: 'With Tunde',
+              subtitle: 'With any available professional',
               onEdit: onEditService,
               onEditTime: onEditTime,
             ),
@@ -432,15 +439,11 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _PaymentCard extends StatefulWidget {
-  const _PaymentCard();
+class _PaymentCard extends StatelessWidget {
+  const _PaymentCard({required this.value, required this.onChanged});
 
-  @override
-  State<_PaymentCard> createState() => _PaymentCardState();
-}
-
-class _PaymentCardState extends State<_PaymentCard> {
-  var _paymentMethod = 'Pay on arrival';
+  final PaymentMethod value;
+  final ValueChanged<PaymentMethod> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -454,23 +457,19 @@ class _PaymentCardState extends State<_PaymentCard> {
         child: Column(
           children: [
             DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _paymentMethod,
+              child: DropdownButton<PaymentMethod>(
+                value: value,
                 isExpanded: true,
                 icon: const Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: AppColors.orange,
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Pay on arrival',
-                    child: Text('Pay on arrival'),
-                  ),
-                  DropdownMenuItem(value: 'Cash', child: Text('Cash')),
-                  DropdownMenuItem(value: 'Card', child: Text('Card')),
+                items: [
+                  for (final method in PaymentMethod.values)
+                    DropdownMenuItem(value: method, child: Text(method.label)),
                 ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _paymentMethod = value);
+                onChanged: (method) {
+                  if (method != null) onChanged(method);
                 },
               ),
             ),
@@ -492,9 +491,9 @@ class _PaymentCardState extends State<_PaymentCard> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _paymentMethod == 'Pay on arrival'
+                    value == PaymentMethod.payOnArrival
                         ? 'Cash or card at the business'
-                        : _paymentMethod,
+                        : value.label,
                     style: const TextStyle(color: AppColors.ink, fontSize: 13),
                   ),
                 ),
