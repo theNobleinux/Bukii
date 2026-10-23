@@ -122,6 +122,7 @@ class _BookingDetailsScreenState extends State<BookingDetailsScreen> {
         _date = selected;
         _slot = null;
       });
+      if (!mounted) return;
       await _editTime();
     }
   }

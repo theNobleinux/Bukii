@@ -69,7 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       widget.onProfileChanged?.call(profile);
     } on BackendException catch (error) {
       _showMessage(error.message);
-      setState(() => _applyProfile(widget.profile));
+      if (mounted) setState(() => _applyProfile(widget.profile));
     }
   }
 
