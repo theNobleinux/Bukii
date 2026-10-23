@@ -217,6 +217,11 @@ void main() {
 
     expect(find.text('Almost there.'), findsOneWidget);
     expect(find.text('Haircut + Beard'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('₦18,000'),
+      80,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('₦18,000'), findsOneWidget);
 
     await tester.tap(find.text('Choose a time'));
