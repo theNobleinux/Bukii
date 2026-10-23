@@ -1,17 +1,36 @@
-# bookii
+# Bukii
 
-A new Flutter project.
+Book local services in seconds, and give every business its own website.
 
-## Getting Started
+Flutter app (Android, iOS, Web) with a Supabase backend.
 
-This project is a starting point for a Flutter application.
+## Documentation
 
-A few resources to get you started if this is your first Flutter project:
+| Doc | For |
+|---|---|
+| [docs/BACKEND.md](docs/BACKEND.md) | Full backend guide: auth, tables, booking engine, website generator, API, security, testing, deployment |
+| [supabase/README.md](supabase/README.md) | Quick reference: tables, RPCs, test logins |
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Try it
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **Web preview:** https://thenobleinux.github.io/Bukii/
+- **Test customer:** phone `800 000 0002`, code `123456`
+- **Test business owner:** phone `800 000 0001`, code `123456`
+
+## Run locally
+
+```bash
+flutter pub get
+flutter run
+```
+
+## Checks
+
+```bash
+flutter analyze
+flutter test
+```
+
+Database tests: paste `supabase/tests/engine_test.sql` and
+`supabase/tests/website_test.sql` into the Supabase SQL Editor and run. Every line
+should start with `ok`.
